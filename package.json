@@ -1,0 +1,62 @@
+{
+  "version": "0.0.6",
+  "name": "bench-chain",
+  "description": "benchmark recording - averages & graphs.",
+  "main": "src/index",
+  "scripts": {
+    "test": "ava --verbose",
+    "docs": "jsdoc"
+  },
+  "dependencies": {
+    "ava": "*",
+    "benchmark": "2.1.4",
+    "doxdox": "*",
+    "flipfile": "*",
+    "fliplog": "*",
+    "jsdoc": "3.4.3",
+    "jsdoc-api": "3.0.0",
+    "jsdoc-babel": "^0.3.0"
+  },
+  "keywords": [
+    "benchmark",
+    "ui",
+    "average",
+    "graph",
+    "time",
+    "record"
+  ],
+  "author": "James <aretecode@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/aretecode/bench-chain"
+  },
+  "homepage": "https://github.com/aretecode/bench-chain",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aretecode/bench-chain.git"
+  },
+  "jsdocs": {
+    "source": {
+      "include": [
+        "readme.md",
+        "src"
+      ],
+      "includePattern": ".+\\.js(doc)?$"
+    },
+    "opts": {
+      "recurse": true,
+      "destination": "./jsdocs",
+      "template": "node_modules/tui-jsdoc-template",
+      "package": "package.json"
+    },
+    "plugins": [
+      "node_modules/jsdoc-babel",
+      "plugins/markdown"
+    ]
+  },
+  "devDependencies": {
+    "fliplog": "^0.2.2-next.1",
+    "jsdoc": "^3.4.3",
+    "tui-jsdoc-template": "^1.1.0"
+  }
+}
