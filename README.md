@@ -7,11 +7,15 @@
 [![MIT License][license-image]][license-url]
 [![bench-chain][gitter-badge]][gitter-url]
 [![Dependencies][david-deps-img]][david-deps-url]
+[![fluents][fluents-image]][fluents-url]
+
+[fluents-image]: https://img.shields.io/badge/⛓-fluent-9659F7.svg
+[fluents-url]: https://www.npmjs.com/package/flipchain
 
 [bench-chain-npm-image]: https://img.shields.io/npm/v/bench-chain.svg
 [bench-chain-npm-url]: https://npmjs.org/package/bench-chain
-[license-image]: http://img.shields.io/badge/license-${license}-blue.svg?style=flat
-[license-url]: https://spdx.org/licenses/${license}
+[license-image]: http://img.shields.io/badge/license-mit-blue.svg?style=flat
+[license-url]: https://spdx.org/licenses/mit
 [gitter-badge]: https://img.shields.io/gitter/room/bench-chain/pink.svg
 [gitter-url]: https://gitter.im/bench-chain/Lobby
 
@@ -41,4 +45,24 @@ const bench = require('bench-chain')
 ```
 
 ## [🌐 documentation](./docs)
-## [tests](./tests)
+## [🔬 tests](./tests)
+## [📘 examples](./examples)
+
+```js
+const {resolve} = require('path')
+const Bench = require('bench-chain')
+
+const {record, suite} = Bench.suite(__dirname, true)
+
+suite
+  .add('1 * 1', () => 1 * 1)
+  .add('1 + 1', () => 1 + 1)
+  .run()
+
+// true auto calls the following functions:
+record.setup(true)
+
+/**
+ * suite.on('complete', () => record.echoFastest().save().echoAvgs().echoTrend())
+ */
+```

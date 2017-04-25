@@ -1,5 +1,5 @@
 {
-  "version": "0.0.6",
+  "version": "0.0.7",
   "name": "bench-chain",
   "description": "benchmark recording - averages & graphs.",
   "main": "src/index",
@@ -8,14 +8,17 @@
     "docs": "jsdoc"
   },
   "dependencies": {
-    "ava": "*",
     "benchmark": "2.1.4",
-    "doxdox": "*",
     "flipfile": "*",
-    "fliplog": "*",
+    "fliplog": "*"
+  },
+  "devDependencies": {
+    "doxdox": "*",
     "jsdoc": "3.4.3",
     "jsdoc-api": "3.0.0",
-    "jsdoc-babel": "^0.3.0"
+    "jsdoc-babel": "^0.3.0",
+    "ava": "*",
+    "tui-jsdoc-template": "^1.1.0"
   },
   "keywords": [
     "benchmark",
@@ -53,10 +56,5 @@
       "node_modules/jsdoc-babel",
       "plugins/markdown"
     ]
-  },
-  "devDependencies": {
-    "fliplog": "^0.2.2-next.1",
-    "jsdoc": "^3.4.3",
-    "tui-jsdoc-template": "^1.1.0"
   }
 }
