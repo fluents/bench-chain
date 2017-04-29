@@ -1,29 +1,32 @@
+const os = require('os')
 const {resolve} = require('path')
 const {Suite} = require('benchmark')
 const exists = require('flipfile/exists')
 const write = require('flipfile/write')
 const log = require('fliplog')
+const fliptime = require('fliptime')
+const Fun = require('funwithflags')
+const ChainedMap = require('flipchain/ChainedMapExtendable')
+const pkg = require('../package.json')
+const battery = require('./battery')
+const {uniq} = require('./deps')
+const Reporter = require('./Report')
 
-const fliptime = log.fliptime()
-const {tillNow} = fliptime
+const {tillNow, microtime} = fliptime
 
-/**
- * @param  {Function[]} funcs functions to flow left to right
- * @return {Function} passes args through the functions, bound to this
- */
-function flow(...funcs) {
-  const length = funcs ? funcs.length : 0
-  return function flowing(...args) {
-    let index = 0
-    // eslint-disable-next-line
-    let result = length ? funcs[index].apply(this, args) : args[0]
-    while (++index < length) {
-      // eslint-disable-next-line
-      result = funcs[index].call(this, result)
-    }
-    return result
-  }
-}
+log.registerCatch()
+
+const {runTimes, graph} = Fun(process.argv.slice(2), {
+  default: {
+    runTimes: 1,
+    graph: false,
+  },
+  bool: ['graph'],
+  camel: true,
+  unknown(arg, fun) {
+    if (fun.i === 0) fun.argv.runTimes = Number(arg)
+  },
+})
 
 /**
  * @TODO use Remember here to progress!
@@ -37,63 +40,108 @@ function flow(...funcs) {
  * @prop {string} abs absolute path to results json file
  * @prop {Object} current current event target object
  */
-class Record {
+class BenchChain extends ChainedMap {
 
   /**
-   * Converts a number to a more readable comma-separated string representation.
-   *
-   * @static
-   * @param {number} number The number to convert.
-   * @return {string} The more readable string representation.
+   * @param {string} dir directory for the file with the record
+   * @param {string} filename filename for benchmark
    */
-  static formatNumber(number) {
-    number = String(number).split('.')
-    return (
-      number[0].replace(/(?=(?:\d{3})+$)(?!\b)/g, ',') +
-      (number[1] ? '.' + number[1] : '')
-    )
-  }
-
-  /**
-   * @param  {string} dir directory for the file with the record
-   */
-  constructor(dir) {
+  constructor(dir, filename) {
+    super()
     this.dir = dir
     this.shouldEcho = true
     this.debug = false
     this.initMem = process.memoryUsage()
-    this.filename()
+    this.initMemOs = os.freemem()
+    this.filename(filename)
   }
 
   /**
-   * @private
+   * @see BenchChain.testName
+   * @return {Object} results, with test name when available
+   */
+  getResults() {
+    if (this.testName !== undefined) {
+      if (this.results[this.testName] === undefined) {
+        this.results[this.testName] = {}
+      }
+      return this.results[this.testName]
+    }
+    return this.results
+  }
+
+  /**
+   * @param {string} name test name
+   * @return {BenchChain} @chainable
+   */
+  name(name) {
+    this.testName = name
+    return this
+  }
+
+  /**
+   * @since 0.2.0
+   * @param {string} tags tag current benchmarks with
+   * @return {BenchChain} @chainable
+   */
+  tags(tags) {
+    this.tag = tags
+    return this
+  }
+
+  /**
+   * @since 0.2.0
+   * @HACK @FIXME
+   * @param {string} name test name
+   * @param {number} num  timestamp micro or mili or
+   * @return {BenchChain} @chainable
+   */
+  addTime(name, num) {
+    const result = {name, num, tag: this.tag}
+    const results = this.getResults()
+    this.current = result
+    this.current.tag = this.tag
+    // use results object, or a new object
+    if (results !== undefined && results[name] === undefined) {
+      results[name] = []
+    }
+    else if (Array.isArray(results[name]) === false) {
+      results[name] = []
+    }
+
+    results[name].push(result)
+    return this
+  }
+
+  /**
+   * @protected
    * @desc handles benchmark cycle event
-   * @see Record.results, Record.current
+   * @see BenchChain.results, BenchChain.current
    * @param  {Benchmark.Event} event
-   * @return {Record} @chainable
+   * @return {BenchChain} @chainable
    */
   cycle(event) {
     const hz = event.target.hz < 100 ? 2 : 0
     const num = Number(event.target.hz.toFixed(hz))
-
+    // log.quick(event, num, event.target.hz.toFixed(hz))
     // @example "optimized x 42,951 ops/sec ±3.45% (65 runs sampled)"
     const msg = event.target.toString()
     const name = msg.split(' x').shift()
     const sampled = msg.split('% (').pop().split(' runs').shift()
     const variation = msg.split('±').pop().split('%').shift()
-    const result = {name, num, sampled, variation}
-
+    const result = {name, num, sampled, variation, tag: this.tag}
+    const results = this.getResults()
     this.current = result
-
+    this.current.tag = this.tag
     // use results object, or a new object
-    if (this.results !== undefined && this.results[name] === undefined) {
-      this.results[name] = []
+    if (results !== undefined && results[name] === undefined) {
+      results[name] = []
     }
-    else if (Array.isArray(this.results[name]) === false) {
-      this.results[name] = []
+    else if (Array.isArray(results[name]) === false) {
+      results[name] = []
     }
 
-    this.results[name].push(result)
+    results[name].push(result)
 
     return this
   }
@@ -103,10 +151,10 @@ class Record {
   /**
    * @desc   save and load file for the results
    * @param  {String} [filename='./results.json']
-   * @return {Record} @chainable
+   * @return {BenchChain} @chainable
    */
   filename(filename = './results.json') {
-    this.rel = filename
+    this.rel = filename || './results.json'
     this.abs = resolve(this.dir, this.rel)
 
     log.green('writing').data({rel: this.rel, abs: this.abs}).echo(this.debug)
@@ -120,9 +168,9 @@ class Record {
   }
 
   /**
-   * @see    Record.results
+   * @see    BenchChain.results
    * @param  {Boolean} [force=false] force reload
-   * @return {Record} @chainable
+   * @return {BenchChain} @chainable
    */
   load(force = false) {
     if (this.results && force === false) return this
@@ -135,8 +183,8 @@ class Record {
 
   /**
    * @desc saves to file
-   * @see Record.load, Record.filename
-   * @return {Record} @chainable
+   * @see BenchChain.load, BenchChain.filename
+   * @return {BenchChain} @chainable
    */
   save() {
     const now = Date.now()
@@ -144,253 +192,50 @@ class Record {
 
     log.green('saving').echo(this.debug)
 
-    Object.keys(this.results).forEach(name => {
-      const r = this.results[name][this.results[name].length - 1] || {}
+    const results = this.getResults()
+    const resultKeys = Object.keys(results)
+    resultKeys.forEach(name => {
+      const r = results[name][results[name].length - 1] || {}
       r.now = now
       r.mem = mem
+      r.tags = this.tag
+      r.battery = battery
+      r.timesFor = this.timesFor[name]
     })
+
+    // @TODO: fix
+    resultKeys.forEach(name => {
+      results[name] = results[name].filter(uniq).filter(val => !!val.now)
+    })
+
+    // log.quick(this.results)
 
     write(this.abs, JSON.stringify(this.results, null, 2))
 
     return this
   }
 
-  // --- echoing helpers ---
 
   /**
-   * @desc divide by this number for nicer numbers
-   * @param  {number} max
-   * @return {number}
-   */
-  getDiv(max) {
-    switch (true) {
-      case max > 1000:
-        return 100
-      case max > 10000:
-        return 1000
-      case max > 100000:
-        return 10000
-      case max > 1000000:
-        return 100000
-      case max > 10000000:
-        return 1000000
-      default:
-        return 1
-    }
-  }
-
-  /**
-   * @see this.getDiv
-   *
-   * @desc go through results,
-   *       get max and min,
-   *       pretty print numbers
-   *
-   * @return {Object<points, max, min>} trend graph data
-   */
-  trend() {
-    const trend = {}
-    const results = this.results
-
-    Object.keys(results).forEach(name => {
-      let nums = results[name].map(v => Number(v.num))
-      let min = flow(Math.floor, Math.min)(...nums)
-      let max = flow(Math.floor, Math.max)(...nums)
-      const div = this.getDiv(max)
-
-      log.data({max, min, div}).text('trendy').echo(this.debug)
-
-      max = max / div
-      min = min / div
-
-      // into graph points
-      const points = nums
-        .map((r, i) => {
-          if (Math.floor(r / (div || 1)) === 0) return 0
-          return [i, Math.floor(r / (div || 1))]
-        })
-        .filter(r => r !== 0)
-
-      // into graph points from date
-      const datePoints = nums
-        .map((r, i) => {
-          let key = i
-          const {ms, s, m, h, d, y} = tillNow(results[name].now)
-          key = i
-
-          if (m === 0) return 0
-          return [key, m]
-        })
-        .filter(r => r !== 0)
-
-      trend[name] = {points, datePoints, max, min}
-    })
-
-    // log.cyan('all trend data').verbose(100).data(trend).echo(this.debug)
-
-    return trend
-  }
-
-  /**
-   * @param  {string} prop map to this property to average with that data
-   * @return {Averages} averages
-   */
-  avgs(prop = 'num') {
-    this.load()
-
-    const avgs = {}
-
-    log.blue('this.results').data(this.results).echo(this.debug)
-
-    Object.keys(this.results).forEach(name => {
-      const resultsForProp = this.results[name].map(result => {
-        return Number(result[prop])
-      })
-      const avg = this.avg(resultsForProp)
-
-      log.blue('averages').data({name, resultsForProp, avg}).echo(this.debug)
-
-      avgs[name] = avg
-    })
-
-    return avgs
-  }
-
-  /**
-   * @param  {Array<number>} data
-   * @return {number} average
-   */
-  avg(data) {
-    const sum = data.reduce((prev, curr) => 0 + prev + curr, 0)
-    return Math.floor(sum / data.length)
-  }
-
-  /**
-   * @see Record.suite
+   * @see BenchChain.suite
    * @return {Array<string>} test case name
    */
   fastest() {
     return this.suite.filter('fastest').map('name')
   }
 
-  // --- echo ---
-
-  /**
-   * @see Record.avgs
-   * @TODO transform data to trim
-   * @return {Record} @chainable
-   */
-  echoAvgs() {
-    log.json(this.avgs()).bold('averages:\n').echo(this.shouldEcho || true)
-    return this
-  }
-
-  /**
-   * @since 0.0.2
-   * @see Record.avgs
-   * @TODO transform data to trim
-   * @return {Record} @chainable
-   */
-  echoAvgGraph() {
-    const avgs = this.avgs()
-    const nums = Object.keys(avgs).map(name => Number(avgs[name]))
-    const max = Math.floor(Math.max(...nums))
-    const min = Math.floor(Math.min(...nums))
-    const div = this.getDiv(max) * 10
-    const points = Object.keys(avgs).map((name, i) => {
-      return [i, Math.floor(avgs[name] / div)]
-    })
-
-    // , {max, min, nums, points}
-    log.blue('averages of: ').data(Object.keys(avgs)).echo(this.shouldEcho)
-
-    log
-      .barStyles({
-        color: 'blue',
-        // width: 150,
-        maxY: Math.floor(max / div),
-        minY: Math.floor(min / div),
-        // height: 100,
-        // yFractions: 0,
-        // xFractions: 0,
-        caption: 'averages of all:',
-      })
-      .bar(points)
-      .echo(this.shouldEcho)
-
-    return this
-  }
-
-  /**
-   * @see Record.fastest
-   * @return {Record} @chainable
-   */
-  echoFastest() {
-    log
-      .verbose(this.fastest().shift())
-      .underline('Fastest is ')
-      .echo(this.shouldEcho)
-
-    // log.bold('================').echo(this.shouldEcho)
-
-    return this
-  }
-
-  /**
-   * @see Record.trend
-   * @return {Record} @chainable
-   */
-  echoTrend() {
-    const graphs = this.trend()
-
-    Object.keys(graphs).forEach(name => {
-      console.log('\n')
-      const {points, datePoints, max, min} = graphs[name]
-
-      // log
-      //   .magenta('verbose graph:')
-      //   .verbose(100)
-      //   .data(graphs[name])
-      //   .echo(this.shouldDebug)
-
-      log
-        .barStyles({
-          color: 'green',
-          width: 150,
-          height: 10,
-          maxY: max,
-          yFractions: 0,
-          caption: name,
-        })
-        .bar(points)
-        .echo(this.shouldEcho)
-
-      log
-        .barStyles({
-          color: 'yellow',
-          width: 150,
-          height: 10,
-          yFractions: 0,
-          caption: name + ' over time' + log.colored(' (minutes):', 'dim'),
-        })
-        .bar(datePoints)
-        .echo(false)
-      // .echo(this.shouldEcho)
-    })
-
-    return this
-  }
-
   // --- suite ---
 
   /**
-   * @see Record.suite, Record.setup, Record.constructor
+   * @TODO improve this factory
+   * @see BenchChain.suite, BenchChain.setup, BenchChain.constructor, BenchChain.filename
    * @param  {string} dir
    * @param  {Boolean} [auto=false]
+   * @param  {String} [filename='./results.json']
    * @return {Object} {suite, record}
    */
-  static suite(dir, auto = false) {
-    const record = new Record(dir)
+  static suite(dir, auto = false, filename = './results.json') {
+    const record = new BenchChain(dir, filename)
     const suite = record.suite(auto)
 
     record.setup()
@@ -399,7 +244,7 @@ class Record {
   }
 
   /**
-   * @see Record.setup
+   * @see BenchChain.setup
    * @param  {Boolean} [auto=false]
    * @return {Benchmark.Suite}
    */
@@ -411,72 +256,161 @@ class Record {
 
   /**
    * @param  {Boolean} [auto=true] automatically sets up echoing and saving
-   * @return {Record} @chainable
+   * @param  {Boolean} [cycles=true] capture cycles
+   * @return {BenchChain} @chainable
    */
-  setup(auto = true) {
-    const cycle = this.cycle.bind(this)
-    this.suite.on('cycle', event => {
-      cycle(event)
-    })
-
+  setup(auto = true, cycles = true) {
+    if (cycles === true) {
+      const cycle = this.cycle.bind(this)
+      this.suite.on('cycle', event => {
+        cycle(event)
+      })
+    }
     if (auto) {
-      this.suite.on('complete', () =>
-        // .echoAvgGraph()
-        this.echoFastest().save().echoAvgs().echoTrend()
-      )
+      this.suite.on('complete', () => {
+        this.save().echo()
+      })
     }
 
     return this
   }
+
   // --- operations / bench helpers when not using suite / ---
 
   /**
    * @desc add benchmark case
    * @param {string}   name
-   * @param {Function} cb
-   * @return {Record} @chainable
+   * @param {Function} fn
+   * @return {BenchChain} @chainable
    */
-  add(name, cb) {
-    this.suite.add(name, cb)
+  add(name, fn) {
+    this.set('async', false)
+    this.suite.add(name, fn)
+    return this
+  }
+
+  /**
+   * @param  {boolean} [asyncs=true]
+   * @return {BenchChain} @chainable
+   */
+  asyncMode(asyncs = true) {
+    return this.set('async', asyncs)
+  }
+
+  /**
+   * @since 0.2.0
+   * @protected
+   * @desc should return empty calls to see baseline
+   *       empty bench to get more raw overhead
+   *
+   * @see BenchChain.addAsync
+   * @param  {string}   name test name
+   * @param  {Function} fn function to call deferred
+   * @return {BenchChain}   @chainable
+   */
+  hijackAsync(name, fn) {
+    return async cb => {
+      // console.log(name)
+      // return cb.resolve()
+      const times = {
+        start: microtime.now(),
+        end: null,
+      }
+      const hjResolve = (arg) => {
+        times.end = microtime.now()
+        times.diff = times.end - times.start
+        return cb.resolve(arg)
+      }
+      const hjReject = (arg) => {
+        times.end = microtime.now()
+        times.diff = times.end - times.start
+        return cb.reject(arg)
+      }
+      hjResolve.reject = hjReject
+      hjResolve.resolve = hjResolve
+
+      this.timesFor = this.timesFor || {}
+      this.timesFor[name] = this.timesFor[name] || []
+      this.timesFor[name].push(times)
+
+      return await fn(hjResolve, hjReject)
+    }
+  }
+
+  /**
+   * @since 0.2.0
+   * @desc add benchmark case (with defer)
+   * @param {string}   name
+   * @param {Function} fn
+   * @return {BenchChain} @chainable
+   */
+  addAsync(name, fn) {
+    this.set('async', true)
+    this.suite.add(name, {
+      defer: true,
+      fn: this.hijackAsync(name, fn),
+    })
     return this
   }
 
   /**
    * @desc calls setup, runs suite
-   * @param {boolean} async
-   * @return {Record} @chainable
+   * @return {BenchChain} @chainable
    */
-  run(async = false) {
+  run(...args) {
     this.setup()
-    this.suite.run({async})
+    if (graph === true) {
+      return this.echo()
+    }
+    this.suite.run({async: this.get('async')})
     return this
   }
 
   /**
-   * @see Record.run
+   * @see BenchChain.run
    * @param {boolean} async
-   * @return {Record} @chainable
+   * @return {BenchChain} @chainable
    */
   runAsync() {
-    return this.run(true)
+    return this.set('async', true).run()
   }
 
   /**
    * @desc runs the suite test x times
-   * @param  {Number} [times=10]
-   * @return {Record} @chainable
+   * @param  {Number} [times=null] defaults to 1, allows first arg to be number of runs
+   * @return {BenchChain} @chainable
    */
-  runTimes(times = 10) {
+  runTimes(times = null) {
     // this.shouldEcho = false
+    if (times === null) times = runTimes
 
     for (let i = 0; i < times; i++) {
+      // this.suite.resetSuite()
       // if (i === times) this.shouldEcho = true
-      this.suite.run({async: false})
+      this.suite.run({async: this.get('async')})
     }
+
+    return this
+  }
+
+  /**
+   * @since 0.2.0
+   * @desc instantiates Reporter, does echoing of numbers
+   * @return {BenchChain} @chainable
+   */
+  echo() {
+    this.load()
+
+    const reporter = new Reporter(this)
+    reporter.echoFastest()
+    reporter.echoAvgGraph()
+    reporter.echoAvgs()
+    reporter.echoTrend()
+    reporter.echoPercent()
 
     return this
   }
 }
 
-Record.version = '0.0.5'
-module.exports = Record
+BenchChain.version = pkg.version
+module.exports = BenchChain

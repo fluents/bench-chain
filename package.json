@@ -1,5 +1,5 @@
 {
-  "version": "0.0.7",
+  "version": "0.2.0",
   "name": "bench-chain",
   "description": "benchmark recording - averages & graphs.",
   "main": "src/index",
@@ -9,8 +9,12 @@
   },
   "dependencies": {
     "benchmark": "2.1.4",
+    "flipchain": "*",
     "flipfile": "*",
-    "fliplog": "*"
+    "fliplog": "*",
+    "fliptime": "*",
+    "funwithflags": "*",
+    "string.prototype.padend": "^3.0.0"
   },
   "devDependencies": {
     "doxdox": "*",
