@@ -374,7 +374,8 @@ module.exports = class Report extends ChainedMap {
       // log.quick({end, fixed, end2, percent})
 
       const lt = end2 === -1 || end2 === 0
-      if (end2 === 1 || lt) {
+      const usep = (end2 === 1 || lt) && false
+      if (usep) {
         end = percent + '%'
         if (lt) word = 'slower'
       }

@@ -115,7 +115,7 @@ Bench
 - **timesFor**: microtime | performance.now times for beginning & end of each run
 - **now**: Date.now for changes over time
 
-<img width="1012" alt="screen shot 2017-04-29 at 8 56 45 pm" src="https://cloud.githubusercontent.com/assets/4022631/25561324/67f327bc-2d1e-11e7-8ea2-362dbeffb403.png">
+<img width="1024" alt="screen shot 2017-04-29 at 9 08 50 pm" src="https://cloud.githubusercontent.com/assets/4022631/25561422/1aede9b4-2d20-11e7-8da3-9573ebecefa7.png">
 
 
 <!-- ### in the wild -->
