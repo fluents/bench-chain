@@ -1,7 +1,7 @@
 const log = require('fliplog')
 const {tillNow} = require('fliptime')
 const ChainedMap = require('flipchain/ChainedMapExtendable')
-const {padEnd, calcTimes, flowVals} = require('./deps')
+const {padEnd, calcTimes, flowVals, calcPercent} = require('./deps')
 
 // const flowmin = flow(Math.floor, Math.min)
 // const flowmax = flow(Math.floor, Math.max)
@@ -18,13 +18,17 @@ module.exports = class Report extends ChainedMap {
   constructor(parent) {
     super(parent)
 
-    this.shouldEcho = parent.shouldEcho
-    this.debug = false // parent.debug // || true
+    this.debug = parent.get('debug')
+    // this.debug = false // parent.debug // || true
     this.dir = parent.dir
     this.testName = parent.testName
     this.tag = parent.tag
     this.current = parent.current
     this.fastest = parent.fastest.bind(parent)
+    this.shouldEcho = true
+    this.shouldFilter = false
+    this.asyncMode = parent.get('async')
+
     // this.debug(parent.get('debug'))
   }
   getResults() {
@@ -32,41 +36,54 @@ module.exports = class Report extends ChainedMap {
   }
 
   /**
+   * @see BenchChain.asyncMode
    * @param  {string} prop map to this property to average with that data
    * @return {Averages} averages
    */
   avgs(prop = 'num') {
     const avgs = {}
     const results = this.getResults()
+    const keys = Object.keys(results)
 
     log.blue('this.results').data(results).echo(this.debug)
 
-    Object.keys(results).forEach(name => {
-      const v = results[name]
+    // results(keys[0]).timesFor
+    if (this.asyncMode) {
+      keys.forEach(name => {
+        const v = results[name]
 
-      // skip for now
-      if (!v[0].timesFor) return
+        // skip for now
+        if (!v[0].timesFor) return
 
-      const t4s = v.map(entry => {
+        const t4s = v.map(entry => {
+          log
+            .data(Object.keys(entry), entry.timesFor)
+            .red('ENTRY ' + entry.name)
+            .echo(this.debug)
+          return entry.timesFor.map(t => t.diff)
+        })
+        const t4 = [].concat.apply(t4s).pop()
+        const avgavg = Math.abs(this.avg(t4))
+
+        const resultsForProp = v.map(result => avgavg)
+        const avg = this.avg(resultsForProp)
+
         log
-          .data(Object.keys(entry), entry.timesFor)
-          .red('ENTRY ' + entry.name)
+          .blue('averages')
+          .data({name, resultsForProp, avg, avgavg, t4})
           .echo(this.debug)
-        return entry.timesFor.map(t => t.diff)
+
+        avgs[name] = avg
       })
-      const t4 = [].concat.apply(t4s).pop()
-      const avgavg = Math.abs(this.avg(t4))
-
-      const resultsForProp = v.map(result => avgavg)
-      const avg = this.avg(resultsForProp)
-
-      log
-        .blue('averages')
-        .data({name, resultsForProp, avg, avgavg, t4})
-        .echo(this.debug)
-
-      avgs[name] = avg
-    })
+    }
+    else {
+      keys.forEach(name => {
+        const resultsForProp = results[name].map(result => Number(result[prop]))
+        const avg = this.avg(resultsForProp)
+        log.blue('averages').data({name, resultsForProp, avg}).echo(this.debug)
+        avgs[name] = avg
+      })
+    }
 
     return avgs
   }
@@ -107,6 +124,38 @@ module.exports = class Report extends ChainedMap {
   }
 
   /**
+   * @desc filters numbers outside of the usual range if needed
+   * @param  {number} nums
+   * @param  {number} min
+   * @param  {number} max
+   * @return {Array<number>}
+   */
+  filterIfNeeded({nums, min, max}) {
+    if (!this.shouldFilter) return nums
+
+    nums = nums.filter(nn => {
+      const minp = min * 1.1
+      const maxp = max / 1.1
+
+      log
+        .data({
+          nn,
+          minp,
+          maxp,
+          max,
+          min,
+          passes: (nn >= minp) && (nn <= maxp),
+        })
+        .echo(false)
+
+      return (nn >= minp) // && (nn <= maxp)
+    })
+
+    return nums
+  }
+
+
+  /**
    * @see this.getDiv
    *
    * @desc go through results,
@@ -120,37 +169,32 @@ module.exports = class Report extends ChainedMap {
     const results = this.getResults()
 
     Object.keys(results).forEach(name => {
-      // remap
-      const timesFor = results[name].map(entry => entry.timesFor.map(t => t.diff))
-      // flatten
-      let nums1 = ([].concat.apply(timesFor))
-      // average
-      let nums = nums1.map(numnum => this.avg(numnum))
+      let timesFor
+      let nums
+
+      if (results[name][0].timesFor) {
+        // log.quick('bad')
+        // remap
+        timesFor = results[name].map(entry => entry.timesFor.map(t => t.diff))
+        // flatten
+        let nums1 = ([].concat.apply(timesFor))
+        // average
+        nums = nums1.map(numnum => this.avg(numnum))
+      }
+      else {
+        // log.quick('good')
+        nums = results[name].map(entry => entry.num)
+      }
+
       // min max
       let min = flowmin(nums)
       let max = flowmax(nums)
       const div = this.getDiv(max)
 
       // filter anomolies
-      nums = nums.filter(nn => {
-        const minp = min * 1.1
-        const maxp = max / 1.1
+      nums = this.filterIfNeeded({nums, min, max, div})
 
-        log
-          .data({
-            nn,
-            minp,
-            maxp,
-            max,
-            min,
-            passes: (nn >= minp) && (nn <= maxp),
-          })
-          .echo(false)
-
-        return (nn >= minp) // && (nn <= maxp)
-      })
-
-      log.data({max, min, div}).text('trendy').echo(this.debug)
+      // log.data({max, min, div}).text('trendy').echo(this.debug)
 
       max = max / div
       min = min / div
@@ -167,7 +211,10 @@ module.exports = class Report extends ChainedMap {
       const datePoints = nums
         .map((r, i) => {
           let key = i
-          const {ms, s, m, h, d, y} = tillNow(results[name].now)
+
+          // log.data({rn: results[name][key], name, r, i}).echo()
+          // log.data({now: results[name][key].now, r, i, name}).echo()
+          const {ms, s, m, h, d, y} = tillNow(results[name][key].now)
           key = i
 
           if (m === 0) return 0
@@ -190,7 +237,7 @@ module.exports = class Report extends ChainedMap {
    * @return {Record} @chainable
    */
   echoAvgs() {
-    log.json(this.avgs()).bold('averages:\n').echo(this.shouldEcho || true)
+    log.json(this.avgs()).bold('averages:\n').echo(this.shouldEcho)
     return this
   }
 
@@ -202,8 +249,8 @@ module.exports = class Report extends ChainedMap {
   echoAvgGraphInOne() {
     const avgs = this.avgs()
     const nums = Object.keys(avgs).map(name => Number(avgs[name]))
-    const max = Math.floor(Math.max(...nums))
-    const min = Math.floor(Math.min(...nums))
+    const max = flowmax(...nums)
+    const min = flowmin(...nums)
     const div = this.getDiv(max) * 10
     const points = Object.keys(avgs).map((name, i) => {
       return [i, Math.floor(avgs[name] / div)]
@@ -213,7 +260,7 @@ module.exports = class Report extends ChainedMap {
     log
       .blue('averages of: ')
       .data(Object.keys(avgs))
-      .echo(this.shouldEcho)
+      .echo(this.shouldEcho || true)
 
     log
       .barStyles({
@@ -224,10 +271,10 @@ module.exports = class Report extends ChainedMap {
         // height: 100,
         // yFractions: 0,
         // xFractions: 0,
-        caption: 'averages of all:',
+        caption: 'averages of all (in one):',
       })
       .bar(points)
-      .echo(this.shouldEcho)
+      .echo(this.shouldEcho || true)
 
     return this
   }
@@ -241,9 +288,12 @@ module.exports = class Report extends ChainedMap {
   echoAvgGraph() {
     const avgs = this.avgs()
     const nums = Object.keys(avgs).map(name => Number(avgs[name]))
-    const max = Math.floor(Math.max(...nums))
-    const min = Math.floor(Math.min(...nums))
-    const div = this.getDiv(max) * 10
+    const max = flowmax(nums)
+    const min = flowmin(nums)
+    const div = this.getDiv(max) // * 10
+
+    // log.data({avgs, nums, max, min, div}).echo(thisdebug)
+
     const points = Object.keys(avgs).map((name, i) => {
       return [i, Math.floor(avgs[name] / div)]
     })
@@ -252,7 +302,7 @@ module.exports = class Report extends ChainedMap {
     log
       .blue('averages of: ')
       .data(Object.keys(avgs))
-      .echo(this.shouldEcho)
+      .echo(this.debug)
 
     log
       .barStyles({
@@ -266,7 +316,8 @@ module.exports = class Report extends ChainedMap {
         caption: 'averages of all:',
       })
       .bar(points)
-      .echo(this.shouldEcho)
+      .echo(false)
+      // .echo(this.shouldEcho)
 
     return this
   }
@@ -317,24 +368,34 @@ module.exports = class Report extends ChainedMap {
       let fixed = calcTimes(value, other)
       let end = fixed
       let end2 = Math.floor(calcTimes(other, value))
+      let percent = calcPercent(other, value)
 
       let word = 'faster'
-      if (end < 1) {
+      // log.quick({end, fixed, end2, percent})
+
+      const lt = end2 === -1 || end2 === 0
+      if (end2 === 1 || lt) {
+        end = percent + '%'
+        if (lt) word = 'slower'
+      }
+      else if (end < 1) {
         word = 'slower'
-        end = '-' + end2
+        end = '-' + end2 + 'X'
       }
       else {
-        end = Math.floor(fixed)
+        end = Math.floor(fixed) + 'X'
       }
 
       // format
       let vc = log.colored(value + '', 'green.underline')
       let oc = log.colored(other + '', 'green.underline')
-      let ec = log.colored(end + 'X', 'bold')
+      let ec = log.colored(end, 'bold')
       let wc = log.colored(word, 'italic') + ' than'
       let ns = ([
-        log.colored(name.split(' ').shift(), 'cyan'),
-        log.colored(compare.split(' ').shift(), 'blue'),
+        // log.colored(name.split(' ').shift(), 'cyan'),
+        // log.colored(compare.split(' ').shift(), 'blue'),
+        log.colored(name, 'cyan'),
+        log.colored(compare, 'blue'),
       ])
 
       vc = `(${vc})`
@@ -360,9 +421,12 @@ module.exports = class Report extends ChainedMap {
       pcts.push(pct)
     }))
 
-
     console.log('\n')
-    console.log(log.colored(names[0].split(' ').pop(), 'underline'))
+    log.bold(this.parent.get('filename')).echo()
+
+    if (names[0]) {
+      console.log(log.colored(names[0].split(' ').pop(), 'underline'))
+    }
 
     // padd end for pretty string
     const longests = flowVals(flowmax)(Object.assign({}, parts))
@@ -394,7 +458,11 @@ module.exports = class Report extends ChainedMap {
         .magenta('verbose graph:')
         .verbose(100)
         .data(graphs[name])
-        .echo(false)
+        .echo(this.debug)
+
+      log
+        .data({points, datePoints, max, min})
+        .echo(this.debug)
 
       log
         .barStyles({
@@ -418,7 +486,7 @@ module.exports = class Report extends ChainedMap {
         })
         .bar(datePoints)
         .echo(false)
-      // .echo(this.shouldEcho)
+        // .echo(this.shouldEcho)
     })
 
     return this

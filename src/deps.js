@@ -55,8 +55,22 @@ function calcTimes(value, other) {
   const diff2 = value / other
   const percentage2 = diff2 / 100
   const fixed2 = percentage2 * 1000
-  // log.quick({value, other, diff, fixed, end2, end3, fixed2})
+  // require('fliplog').quick({value, other, diff, fixed, end2, end3, fixed2})
   return diff
+}
+
+function calcPercent(value, other) {
+  const diff = other / value
+  const percentage = diff / 100
+  const fixed = percentage * 1000
+
+  const end2 = (Math.round(percentage * 10) / 10)
+  const end3 = Math.round(((value / other) / 100) * 1000)
+
+  const diff2 = value / other
+  const percentage2 = diff2 / 100
+  const fixed2 = percentage2 * 1000
+  return fixed2.toFixed(2)
 }
 
 /**
@@ -81,4 +95,4 @@ function flowVals(cb) {
 }
 
 
-module.exports = {uniq, flow, padEnd, calcTimes, flowVals}
+module.exports = {uniq, flow, padEnd, calcTimes, calcPercent, flowVals}

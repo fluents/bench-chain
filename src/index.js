@@ -31,7 +31,6 @@ const {runTimes, graph} = Fun(process.argv.slice(2), {
 /**
  * @TODO use Remember here to progress!
  * @prop {string} dir
- * @prop {boolean} shouldEcho
  * @prop {boolean} debug
  * @prop {Object} initMem memory when started
  * @prop {number} initTimestamp
@@ -39,24 +38,42 @@ const {runTimes, graph} = Fun(process.argv.slice(2), {
  * @prop {string} rel relative path to results json file
  * @prop {string} abs absolute path to results json file
  * @prop {Object} current current event target object
+ * @prop {Array} timesFor microtime | performance.now times
  */
 class BenchChain extends ChainedMap {
 
   /**
-   * @param {string} dir directory for the file with the record
-   * @param {string} filename filename for benchmark
+   * @prop {string} dir directory for the file with the record
+   * @prop {string} filename filename for benchmark
    */
-  constructor(dir, filename) {
+  constructor() {
     super()
-    this.dir = dir
-    this.shouldEcho = true
-    this.debug = false
+    this.extend(['dir', 'debug'])
     this.initMem = process.memoryUsage()
     this.initMemOs = os.freemem()
-    this.filename(filename)
+    this.timesFor = {}
+    this.debug(false)
   }
 
   /**
+   * @param {string} [dir=null] directory for the file with the record
+   * @param {string} [filename=null] filename for benchmark
+   * @param {string} debug=false debug
+   * @return {BenchChain} @chainable
+   */
+  static init(dir = null, filename = null, debug = false) {
+    const bench = new BenchChain()
+    if (debug !== false) bench.debug(debug)
+    if (dir !== null) bench.dir(dir)
+    if (filename !== null) bench.filename(filename)
+
+    bench.setup()
+    return bench
+  }
+
+
+  /**
+   * @protected
    * @see BenchChain.testName
    * @return {Object} results, with test name when available
    */
@@ -99,8 +116,10 @@ class BenchChain extends ChainedMap {
   addTime(name, num) {
     const result = {name, num, tag: this.tag}
     const results = this.getResults()
+
     this.current = result
-    this.current.tag = this.tag
+    this.current.tags = this.tag
+
     // use results object, or a new object
     if (results !== undefined && results[name] === undefined) {
       results[name] = []
@@ -155,9 +174,13 @@ class BenchChain extends ChainedMap {
    */
   filename(filename = './results.json') {
     this.rel = filename || './results.json'
-    this.abs = resolve(this.dir, this.rel)
+    this.abs = resolve(this.get('dir'), this.rel)
+    this.set('filename', filename.replace('json', '').replace(/[./]/g, ''))
 
-    log.green('writing').data({rel: this.rel, abs: this.abs}).echo(this.debug)
+    log
+      .green('writing')
+      .data({rel: this.rel, abs: this.abs})
+      .echo(this.get('debug'))
 
     if (exists(this.abs) === false) {
       write(this.abs, '{}')
@@ -176,7 +199,7 @@ class BenchChain extends ChainedMap {
     if (this.results && force === false) return this
 
     this.results = require(this.abs) // eslint-disable-line
-    log.green('loading').echo(this.debug)
+    log.green('loading').echo(this.get('debug'))
 
     return this
   }
@@ -190,7 +213,7 @@ class BenchChain extends ChainedMap {
     const now = Date.now()
     const mem = process.memoryUsage()
 
-    log.green('saving').echo(this.debug)
+    log.green('saving').echo(this.get('debug'))
 
     const results = this.getResults()
     const resultKeys = Object.keys(results)
@@ -230,13 +253,12 @@ class BenchChain extends ChainedMap {
    * @TODO improve this factory
    * @see BenchChain.suite, BenchChain.setup, BenchChain.constructor, BenchChain.filename
    * @param  {string} dir
-   * @param  {Boolean} [auto=false]
    * @param  {String} [filename='./results.json']
    * @return {Object} {suite, record}
    */
-  static suite(dir, auto = false, filename = './results.json') {
+  static suite(dir, filename = './results.json') {
     const record = new BenchChain(dir, filename)
-    const suite = record.suite(auto)
+    const suite = record.suite()
 
     record.setup()
 
@@ -245,12 +267,10 @@ class BenchChain extends ChainedMap {
 
   /**
    * @see BenchChain.setup
-   * @param  {Boolean} [auto=false]
    * @return {Benchmark.Suite}
    */
-  suite(auto = false) {
-    this.suite = new Suite()
-
+  suite() {
+    this.suite = new Suite(this.testName || this.abs)
     return this.suite
   }
 
@@ -260,6 +280,8 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   setup(auto = true, cycles = true) {
+    if (!(this.suite instanceof Suite)) this.suite()
+
     if (cycles === true) {
       const cycle = this.cycle.bind(this)
       this.suite.on('cycle', event => {
@@ -329,7 +351,6 @@ class BenchChain extends ChainedMap {
       hjResolve.reject = hjReject
       hjResolve.resolve = hjResolve
 
-      this.timesFor = this.timesFor || {}
       this.timesFor[name] = this.timesFor[name] || []
       this.timesFor[name].push(times)
 
@@ -357,7 +378,7 @@ class BenchChain extends ChainedMap {
    * @desc calls setup, runs suite
    * @return {BenchChain} @chainable
    */
-  run(...args) {
+  run() {
     this.setup()
     if (graph === true) {
       return this.echo()
@@ -381,7 +402,6 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   runTimes(times = null) {
-    // this.shouldEcho = false
     if (times === null) times = runTimes
 
     for (let i = 0; i < times; i++) {
@@ -403,10 +423,10 @@ class BenchChain extends ChainedMap {
 
     const reporter = new Reporter(this)
     reporter.echoFastest()
-    reporter.echoAvgGraph()
     reporter.echoAvgs()
-    reporter.echoTrend()
     reporter.echoPercent()
+    reporter.echoAvgGraph()
+    reporter.echoTrend()
 
     return this
   }

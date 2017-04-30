@@ -1,6 +1,6 @@
 # 🏋️⛓ bench-chain
 
-> benchmark recording - averages & graphs.
+> chainable benchmark recording - averages & graphs.
 
 [![Build Status][travis-image]][travis-url]
 [![NPM version][bench-chain-npm-image]][bench-chain-npm-url]
@@ -33,6 +33,7 @@
 [standard-url]: https://github.com/aretecode/eslint-config-aretecode
 -->
 
+extension of [benchmark.js](https://benchmarkjs.com/)
 
 ## 📦 install
 ```bash
@@ -41,28 +42,80 @@ npm i bench-chain --save
 ```
 
 ```js
-const bench = require('bench-chain')
+const Bench = require('bench-chain')
 ```
 
 ## [🌐 documentation](./docs)
 ## [🔬 tests](./tests)
 ## [📘 examples](./examples)
 
+### 👋 basic
 ```js
-const {resolve} = require('path')
 const Bench = require('bench-chain')
 
-const {record, suite} = Bench.suite(__dirname, true)
-
-suite
+Bench
+  // location to store benchmarks
+  .init(__dirname, 'basic.json')
+  // tag current benchmarks with, to mark what changes caused differences
+  .tags('v1')
+  // actual benchmarks
   .add('1 * 1', () => 1 * 1)
   .add('1 + 1', () => 1 + 1)
   .run()
-
-// true auto calls the following functions:
-record.setup(true)
-
-/**
- * suite.on('complete', () => record.echoFastest().save().echoAvgs().echoTrend())
- */
 ```
+
+### 💍 async
+```js
+const Bench = require('bench-chain')
+
+const sleep = sleepDuration => new Promise(resolve => setTimeout(resolve, sleepDuration))
+
+Bench
+  .init().dir(__dirname).filename('asyncs.json').setup()
+  .name('sleepy')
+  .tags('v1,v2')
+
+  // can also use .add, and then .runAsync()
+  .addAsync('sleep1', async done => {
+    await sleep(1000)
+    done()
+  })
+  .addAsync('sleep2', async done => {
+    await sleep(2000)
+    done()
+  })
+  .run()
+```
+
+
+### 🚩 flags
+
+[using funwithflags](https://github.com/aretecode/funwithflags)
+
+* `--graph` will show only the graph reporting, rather than run the benchmarks
+* `--run-times=10` will run the test `10` times
+
+
+### 📇 metadata
+
+<details>
+  <summary>🔋 battery parsing when available</summary>
+  - will be used for comparing more benchmark results with averages
+  - amperage (number)
+  - currentCapacity (number)
+  - percent (number)
+  - charging (boolean)
+  - temp (number)
+</details>
+
+- **mem**: operating system memory, nodejs memory
+- **num**: operations a second from benchmarkjs hertz
+- **sampled**: total runs samples from benchmarkjs
+- **variation**: variation from benchmarkjs
+- **timesFor**: microtime | performance.now times for beginning & end of each run
+- **now**: Date.now for changes over time
+
+<img width="1012" alt="screen shot 2017-04-29 at 8 56 45 pm" src="https://cloud.githubusercontent.com/assets/4022631/25561324/67f327bc-2d1e-11e7-8ea2-362dbeffb403.png">
+
+
+<!-- ### in the wild -->
