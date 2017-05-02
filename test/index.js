@@ -1,14 +1,17 @@
 const test = require('ava')
-const Record = require('../src')
-const Report = require('../src/Report')
+const {fosho} = require('fosho')
+const Bench = require('../src')
 
-test('can instantiate', t => {
-  const record = new Record(__dirname)
-  t.true(record instanceof Record)
-})
+test.todo('benchmark onCycles contain ...data...')
+test.todo('can subscribe to lifecycle events')
 
-test('can instantiate report', t => {
-  const record = new Record(__dirname)
-  const report = new Report(record)
-  t.true(report instanceof Report)
+test.failing('can add multiple suites', t => {
+  Bench.init()
+    .dir(__dirname)
+    .addSuite('one')
+    .filename('configstore-adding-test')
+    .add('bench1')
+    .add('bench2')
+
+  t.fail()
 })
