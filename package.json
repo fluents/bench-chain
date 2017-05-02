@@ -1,5 +1,5 @@
 {
-  "version": "0.3.0",
+  "version": "0.4.1",
   "name": "bench-chain",
   "description": "benchmark recording - averages & graphs.",
   "main": "src/index",
@@ -8,20 +8,28 @@
     "docs": "jsdoc"
   },
   "dependencies": {
+    "obj-chain-core": "0.0.5",
+    "obj-chain-plugin-config": "0.0.5",
     "benchmark": "2.1.4",
+    "cli-table2": "^0.2.0",
     "flipchain": "*",
     "flipfile": "*",
     "fliplog": "*",
     "fliptime": "*",
     "funwithflags": "*",
+    "lodash.debounce": "^4.0.8",
+    "lodash.flatten": "^4.4.0",
+    "lodash.forown": "^4.4.0",
+    "script-chain": "*",
     "string.prototype.padend": "^3.0.0"
   },
   "devDependencies": {
+    "ava": "*",
     "doxdox": "*",
+    "fosho": "0.0.12",
     "jsdoc": "3.4.3",
     "jsdoc-api": "3.0.0",
     "jsdoc-babel": "^0.3.0",
-    "ava": "*",
     "tui-jsdoc-template": "^1.1.0"
   },
   "keywords": [
