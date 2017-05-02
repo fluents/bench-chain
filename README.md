@@ -115,7 +115,19 @@ Bench
 - **timesFor**: microtime | performance.now times for beginning & end of each run
 - **now**: Date.now for changes over time
 
+### graphs for trends and variation
+
 <img width="1024" alt="screen shot 2017-04-29 at 9 08 50 pm" src="https://cloud.githubusercontent.com/assets/4022631/25561422/1aede9b4-2d20-11e7-8da3-9573ebecefa7.png">
+
+
+### grouped by tags
+
+<img width="571" alt="screen shot 2017-05-01 at 5 45 33 am" src="https://cloud.githubusercontent.com/assets/4022631/25579961/7348f63c-2e31-11e7-8195-ae928c411c31.png">
+
+
+### progress bars
+![digress progress](https://cloud.githubusercontent.com/assets/4022631/25579989/ac2dc194-2e31-11e7-832b-75fa16b241e3.gif)
+
 
 
 <!-- ### in the wild -->
