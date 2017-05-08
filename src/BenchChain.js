@@ -97,6 +97,9 @@ class BenchChain extends ChainedMap {
     if (dir !== null) bench.dir(dir)
     if (filename !== null) bench.filename(filename)
 
+    // for just use as a factory method
+    if (!dir && !filename) return bench
+
     return bench.setup()
   }
 
@@ -127,7 +130,7 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   onSetup(cb) {
-    this.suite.on('setup', cb)
+    this.get('suite').on('setup', cb)
     return this
   }
 
@@ -171,7 +174,7 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   onTeardown(cb) {
-    this.suite.on('teardown', cb)
+    this.get('suite').on('teardown', cb)
     return this
   }
 
@@ -195,7 +198,7 @@ class BenchChain extends ChainedMap {
    * @return {Array<string>} test case name
    */
   fastest() {
-    return this.suite.filter('fastest').map('name')
+    return this.get('suite').filter('fastest').map('name')
   }
 
   // --- file ---
@@ -328,18 +331,18 @@ class BenchChain extends ChainedMap {
 
   /**
    * @see BenchChain.setup
-   * @param {string} [Override=null] defaults to this., or this.paths.abs
+   * @param {string} [override=null] defaults to this., or this.paths.abs
    * @return {Benchmark.Suite}
    */
-  suite(Override = null) {
+  suite(override = null) {
     const suiteName =
-      Override || this.get('suiteName') || this.results.get('abs')
+      override || this.get('suiteName') || this.results.get('abs')
 
     this.name(suiteName)
 
-    this.suite = new Suite(suiteName)
+    this.set('suite', new Suite(suiteName))
 
-    return this.suite
+    return this.get('suite')
   }
 
   /**
@@ -348,7 +351,7 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   setup() {
-    if (!(this.suite instanceof Suite)) this.suite()
+    if (!this.has('suite')) this.suite()
 
     // setup ui
     this.ui = new Interface(this)
@@ -371,8 +374,8 @@ class BenchChain extends ChainedMap {
     const onComplete = this._onComplete.bind(this)
 
     // subscribe
-    this.suite.on('cycle', event => cycle(event))
-    this.suite.on('complete', event => onComplete(event))
+    this.get('suite').on('cycle', event => cycle(event))
+    this.get('suite').on('complete', event => onComplete(event))
 
     return this
   }
@@ -475,7 +478,7 @@ class BenchChain extends ChainedMap {
    */
   addAsync(name, fn) {
     this.set('asyncMode', true)
-    this.suite.add(name, {
+    this.get('suite').add(name, {
       defer: true,
       fn: this.hijackAsync(name, fn),
     })
@@ -493,7 +496,7 @@ class BenchChain extends ChainedMap {
   add(name, fn) {
     this.set('asyncMode', false)
 
-    this.suite.add(name, fn)
+    this.get('suite').add(name, fn)
 
     return this.addRecorder(name)
   }
@@ -520,7 +523,7 @@ class BenchChain extends ChainedMap {
     log.cyan('starting! ' + JSON.stringify(suiteName)).echo(this.get('debug'))
 
     this.ui.onRun(suiteName)
-    this.suite.run({async: asyncMode})
+    this.get('suite').run({async: asyncMode})
 
     return this
   }
@@ -544,8 +547,8 @@ class BenchChain extends ChainedMap {
 
       log.yellow('reset suite: ').data(msg).echo()
 
-      this.suite.reset()
-      this.suite.run({async: this.get('asyncMode')})
+      this.get('suite').reset()
+      this.get('suite').run({async: this.get('asyncMode')})
     }
 
     return this
