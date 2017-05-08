@@ -1,9 +1,10 @@
 {
-  "version": "0.4.4",
+  "version": "0.5.0",
   "name": "bench-chain",
   "description": "benchmark recording - averages & graphs.",
   "main": "src/index",
   "scripts": {
+    "examples": "node example/asyncs && node example/basic && node example/configstore && node example/single",
     "test": "ava --verbose",
     "docs": "jsdoc"
   },

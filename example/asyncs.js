@@ -19,10 +19,10 @@ Bench
     await sleep(200)
     done()
   })
-  // .addAsync('sleep3', async done => {
-  //   await sleep(300)
-  //   done()
-  // })
+  .addAsync('sleep3', async done => {
+    await sleep(300)
+    done()
+  })
   .addAsync('sleep200 4', async done => {
     await sleep(200)
     done()

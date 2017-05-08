@@ -131,7 +131,7 @@ module.exports = class TableReporter {
       const ref = this.getResultsWithNames
 
       forown(regrouped[name], (groupName, group, obj, i) => {
-        this.getResultsWithNames = () => ({
+        this.parent.getResultsWithNames = () => ({
           names: groups,
           results: obj,
         })
@@ -142,7 +142,6 @@ module.exports = class TableReporter {
           const pretty = tag.split('@')
           const pureTag = pretty.shift()
           const time = pretty.pop()
-
           avg = log.colored(avg, this.colorForAvg(avg))
           return {[name]: [pureTag, avg, time]}
         })
