@@ -45,30 +45,39 @@ module.exports = class PercentReporter {
     let percent = calcPercent(other, value)
     let word = 'faster'
 
-    const lt = end2 === -1 || end2 === 0
-    const usep = (end2 === 1 || lt) && false
-    if (usep) {
-      end = percent + '%'
-      if (lt) word = 'slower'
-      if (lt && !this.asyncMode) word = 'faster (ops/s)'
-      else if (!this.asyncMode) word = 'slower (ops/s)'
-    }
-    else if (end < 1) {
+    // @TODO needs fixing
+    // const lt = end2 === -1 || end2 === 0
+    // const usep = (end2 === 1 || lt) && false
+    // if (usep) {
+    //   end = percent + '%'
+    //   if (lt) word = 'slower'
+    //   // if (lt && !this.asyncMode) word = 'faster (ops/s)'
+    //   // else if (!this.asyncMode) word = 'slower (ops/s)'
+    // } else
+    if (end < 1) {
       word = 'slower'
       end = '-' + end2 + 'X'
-      if (this.asyncMode) {
-        word = 'faster (ops/s)'
-        end = end2 + 'X'
-      }
+      // if (this.asyncMode) {
+      //   word = 'faster (ops/s)'
+      //   end = end2 + 'X'
+      // }
     }
     else {
-      if (!this.asyncMode) word = 'slower (ops/s)'
+      //  (ops/s)
+      if (!this.asyncMode) word = 'slower'
       end = Math.floor(fixed) + 'X'
     }
 
     if (!this.asyncMode) {
       if (end.includes('-')) end = end.replace('-', '')
       else end = '-' + end
+    }
+
+    const endIsNeg = end.includes('-') === true
+    if (end.replace('-', '') === '1X') {
+      end = percent + '%'
+      end = end.replace('-', '')
+      word = endIsNeg ? 'slower' : 'faster'
     }
 
     return {end, fixed, percent, word}
@@ -125,7 +134,7 @@ module.exports = class PercentReporter {
         let vc = log.colored(value + '', 'green.underline')
         let oc = log.colored(other + '', 'green.underline')
         let ec = log.colored(end, 'bold')
-        let wc = log.colored(word, 'italic') + ' than'
+        let wc = log.colored(word, 'italic') + '  than'
         let ns = [log.colored(name, 'cyan'), log.colored(compare, 'blue')]
 
         // wrap strings
@@ -157,10 +166,19 @@ module.exports = class PercentReporter {
    */
   echoPaddedAverages(pcts, names, parts) {
     console.log('\n')
-    log.bold(this.suiteName).echo()
+    let suiteName = this.suiteName
+
+    if (suiteName.includes('/')) {
+      suiteName = suiteName.split('/').pop()
+    }
+    if (suiteName.includes('.json')) {
+      suiteName = suiteName.split('.json').shift()
+    }
+
+    log.bold(suiteName).echo()
 
     if (names[0]) {
-      console.log(log.colored(names[0].split(' ').pop(), 'underline'))
+      console.log('🏆  ' + log.colored(names[0].split(' ').pop(), 'underline'))
     }
 
     // padd end for pretty string
@@ -169,7 +187,21 @@ module.exports = class PercentReporter {
       let str = ''
       forown(pct, (v, k) => {
         if (k === 'msg') return
-        str += padEnd(v, longests[k] + 2)
+
+        // pad first
+        v = v.padEnd(longests[k] + 2)
+
+        // because these emoji have different lengths in chars
+        // but not terminal size so we replace here
+        if (v.includes('faster')) {
+          v = v.replace(/(faster)/g, '🏎️') // 🏎️ ⚡
+        }
+        else if (v.includes('slower')) {
+          v = v.replace(/(slower)/g, '🐌')
+        }
+        v = v.replace(/(than)/g, log.colored(' than', 'dim'))
+
+        str += v
       })
       console.log(str)
     })
@@ -192,7 +224,9 @@ module.exports = class PercentReporter {
     const rows = pcts.map((p, i) => {
       const strippedName = replaceAnsi(p.name)
       if (!avgLong[strippedName]) {
-        log.quick(avgLong, names, strippedName, i, p)
+        log.red('could not average it out' + p.name).echo()
+        // log.quick({avgLong, names, strippedName, i, p})
+        return ''
       }
 
       return avgLong[strippedName]

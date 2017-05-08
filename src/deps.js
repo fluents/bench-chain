@@ -45,31 +45,21 @@ function formatNumber(number) {
  */
 function calcTimes(value, other) {
   const diff = other / value
-  const percentage = diff / 100
-  const fixed = percentage * 1000
 
-  const end2 = Math.round(percentage * 10) / 10
-  const end3 = Math.round(value / other / 100 * 1000)
+  // require('fliplog').quick({value, other, diff, fixed, end2, end3, end4, end5, end6, fixed2})
 
-  const diff2 = value / other
-  const percentage2 = diff2 / 100
-  const fixed2 = percentage2 * 1000
-  // require('fliplog').quick({value, other, diff, fixed, end2, end3, fixed2})
   return diff
 }
 
-function calcPercent(value, other) {
-  const diff = other / value
-  const percentage = diff / 100
-  const fixed = percentage * 1000
-
-  const end2 = Math.round(percentage * 10) / 10
-  const end3 = Math.round(value / other / 100 * 1000)
-
-  const diff2 = value / other
-  const percentage2 = diff2 / 100
-  const fixed2 = percentage2 * 1000
-  return fixed2.toFixed(2)
+/**
+ * @tutorial http://www.randomsnippets.com/2009/07/12/dynamic-or-on-the-fly-percentage-calculations-with-javascript/
+ * @param  {number} oldval
+ * @param  {number} newval
+ * @return {number}
+ */
+function calcPercent(oldval, newval) {
+  var percentsavings = ((oldval - newval) / oldval) * 100
+  return Math.round(percentsavings * 100) / 100
 }
 
 /**
