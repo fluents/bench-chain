@@ -1,3 +1,7 @@
+# 0.5.0
+- ⛓ put suite in store - breaking
+- 📦⬇ optional deps
+
 # 0.4.4
 - 📊 added current results to not use every single result which can max things out
 - ℹ️️ jsdocs for data adding with Results
@@ -9,7 +13,6 @@
 - 📜 script running examples
 - %📊 pct report improvements & 🛁 clean!
 - 📘 example of using for just a single benchmark
-- ⛓ put suite in store - breaking
 
 # 0.4.3
 - 📛 fix tag reporting with referencing parent instead of reporter

@@ -8,6 +8,9 @@
     "test": "ava --verbose",
     "docs": "jsdoc"
   },
+  "optionalDependencies": {
+    "fluent-skeleton": "*"
+  },
   "dependencies": {
     "obj-chain-core": "0.0.7",
     "obj-chain-plugin-config": "0.0.7",
