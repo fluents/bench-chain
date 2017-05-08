@@ -1,4 +1,3 @@
-const padEnd = require('string.prototype.padend')
 const os = require('os')
 
 function uniq(value, index, arr) {
@@ -141,7 +140,15 @@ function getDiv(max) {
 // const flowmax = flow(Math.floor, Math.max)
 const flowmin = nums => Math.floor(Math.min(...nums))
 const flowmax = nums => Math.floor(Math.max(...nums))
-
+// const flowmax = nums => {
+//   if (!nums) return 0
+//   return Math.floor(nums.reduce((a, b) => Math.max(a, b)))
+// }
+// const flowmin = nums => {
+//   if (!nums) return 0
+//   return Math.floor(nums.reduce((a, b) => Math.min(a, b)))
+// }
+//
 function getCurrentMemory(init = null) {
   return {
     process: process.memoryUsage(),
@@ -240,11 +247,29 @@ const debounce = require('lodash.debounce')
 const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PRZcf-nqry=><]/g
 const replaceAnsi = str => str.replace(ansiRegex, '')
 
+// https://github.com/uxitten/polyfill/blob/master/string.polyfill.js
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/repeat
+if (!String.prototype.padEnd) {
+  String.prototype.padEnd = function padEnd(targetLength, padString) {
+    targetLength = targetLength >> 0 // floor if number or convert non-number to 0;
+    padString = String(padString || ' ')
+    if (this.length > targetLength) {
+      return String(this)
+    }
+    else {
+      targetLength = targetLength - this.length
+      if (targetLength > padString.length) {
+        padString += padString.repeat(targetLength / padString.length) // append to original to ensure we are longer than needed
+      }
+      return String(this) + padString.slice(0, targetLength)
+    }
+  }
+}
+
 module.exports = {
   replaceAnsi,
   uniq,
   flow,
-  padEnd,
   calcTimes,
   calcPercent,
   flowVals,
