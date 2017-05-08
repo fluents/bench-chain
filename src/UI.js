@@ -89,7 +89,7 @@ module.exports = class BenchChainUserInterface extends ChainedMap {
      */
     this.spinning = setInterval(() => {
       this.removeSpinner()
-      setTimeout(() => this.spin(), 4000)
+      this.spinAgain = setTimeout(() => this.spin(), 4000)
     }, 10000)
 
     /**
@@ -99,6 +99,7 @@ module.exports = class BenchChainUserInterface extends ChainedMap {
      */
     this.clearSpinners = () => {
       clearInterval(this.spinning)
+      clearTimeout(this.spinAgain)
       this.removeSpinner()
     }
 
