@@ -181,10 +181,11 @@ class BenchChain extends ChainedMap {
    * @protected
    * @since 0.4.0
    * @see BenchChain.testName
+   * @param {boolean} [latest=false] only use latest data
    * @return {Object} results, with test name when available
    */
-  getResults() {
-    return this.results.getForName(this.get('suiteName'))
+  getResults(latest = false) {
+    return this.results.getForName(this.get('suiteName'), latest)
   }
 
   /**
@@ -268,8 +269,7 @@ class BenchChain extends ChainedMap {
 
     this.current = result
 
-    const results = this.getResults()
-    results[name].push(result)
+    this.results.add(this.get('suiteName'), name, result)
 
     return this
   }
@@ -328,12 +328,12 @@ class BenchChain extends ChainedMap {
 
   /**
    * @see BenchChain.setup
-   * @param {string} [nameOverride=null] defaults to this.name, or this.paths.abs
+   * @param {string} [Override=null] defaults to this., or this.paths.abs
    * @return {Benchmark.Suite}
    */
-  suite(nameOverride = null) {
+  suite(Override = null) {
     const suiteName =
-      nameOverride || this.get('suiteName') || this.results.get('abs')
+      Override || this.get('suiteName') || this.results.get('abs')
 
     this.name(suiteName)
 
@@ -395,14 +395,16 @@ class BenchChain extends ChainedMap {
    */
   addRecorder(name) {
     const results = this.getResults()
+    const latest = this.getResults(true)
 
     // use results object, or a new object
-    if (results !== undefined && results[name] === undefined) {
-      results[name] = []
-    }
-    else if (Array.isArray(results[name]) === false) {
-      results[name] = []
-    }
+    if (results !== undefined && results[name] === undefined) results[name] = []
+    else if (Array.isArray(results[name]) === false) results[name] = []
+
+    // same for latest
+    if (latest !== undefined && latest[name] === undefined) latest[name] = []
+    else if (Array.isArray(latest[name]) === false) latest[name] = []
+
 
     this.get('testNames').push(name)
 
@@ -566,6 +568,7 @@ class BenchChain extends ChainedMap {
     reporter.echoPercent()
     reporter.echoAvgGraph()
     reporter.echoTrend()
+    reporter.echoOps()
 
     return this
   }

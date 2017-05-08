@@ -27,20 +27,9 @@ module.exports = class Results extends ChainedMap {
   constructor(parent, configStore = false) {
     super(parent)
 
-    /* prettier-ignore */
-
-    this
-      .extend(['configStore'])
-      .configStore(false)
-
     if (configStore) {
-      configStore = new ObjChain({}, ['config'])
-      log.quick(configStore)
-      // .setup().dot(false)
       this.configStore(configStore)
     }
-
-    /* prettier-enable */
 
     if (parent && parent.has && parent.has('debug')) {
       this.debug(parent.get('debug'))
@@ -51,12 +40,64 @@ module.exports = class Results extends ChainedMap {
   }
 
   /**
-   * @since 0.4.1
-   * @desc gets results from file keyed
+   * @desc use configstore via obj-chain (for easy escaping of `dot` syntax)
+   * @since 0.4.4
+   * @param  {boolean} use
+   * @return {BenchChain} @chainable
+   */
+  configStore(use = true) {
+    const configStore = new ObjChain({}, ['config']).setup().dot(false)
+    return this.set('configStore', configStore)
+  }
+
+  /**
+   * @since 0.5.0
+   * @desc   add data to record
+   * @param  {string} suiteName bench suite name
+   * @param  {string} name   name of test
+   * @param  {Object} result data to record
+   * @return {Results} @chainable
+   */
+  add(suiteName, name, result) {
+    const data1 = this.getForName(suiteName)
+    const data2 = this.getForNameLatest(suiteName)
+
+    if (!data1[name]) data1[name] = []
+    if (!data2[name]) data2[name] = []
+    data1[name].push(result)
+    data2[name].push(result)
+
+    return this
+  }
+
+  /**
+   * @since 0.5.0
+   * @desc latest run results only
    * @param  {string} name suite name
    * @return {Object}      results
    */
-  getForName(name) {
+  getForNameLatest(name) {
+    if (name !== undefined) {
+      if (this.latest[name] === undefined) {
+        this.latest[name] = {}
+      }
+      return this.latest[name]
+    }
+    return this.latest
+  }
+
+  /**
+   * @since 0.4.1
+   * @desc gets results from file keyed
+   * @param  {string} name suite name
+   * @param  {boolean} [latest=false] latest run results only
+   * @return {Object}      results
+   */
+  getForName(name, latest = false) {
+    if (latest === true) {
+      return this.getForNameLatest(name)
+    }
+
     if (name !== undefined) {
       if (this.data[name] === undefined) {
         this.data[name] = {}
@@ -94,11 +135,13 @@ module.exports = class Results extends ChainedMap {
    */
   load(force = false) {
     if (this.data && force === false) return this
+
     let {abs, configStore} = this.entries()
+    this.latest = {}
 
     if (abs.includes('configstore') && !configStore) {
-      configStore = new ObjChain({}, ['config']).setup().dot(false)
-      this.configStore(configStore)
+      configStore = this.configStore(true).get('configStore')
+
       log
         .green('results loaded from configstore: ')
         .json({'(cmd + click)': log.colored(configStore.path, 'underline')})
@@ -107,10 +150,10 @@ module.exports = class Results extends ChainedMap {
 
     // use configstore
     if (configStore) {
+      log.underline('using configstore').echo(this.get('debug'))
       if (!configStore.has(abs)) {
         configStore.set(abs, {})
       }
-      // log.quick(configStore.escape(abs))
       this.data = configStore.get(abs) || {}
 
       return this
