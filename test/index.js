@@ -2,6 +2,9 @@ const test = require('ava')
 const {fosho} = require('fosho')
 const Bench = require('../src')
 
+test.todo('benchmark reports over time')
+test.todo('benchmark test ranges')
+test.todo('benchmark stdout with flags')
 test.todo('benchmark onCycles contain ...data...')
 test.todo('can subscribe to lifecycle events')
 

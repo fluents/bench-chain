@@ -23,18 +23,75 @@ const argv = Fun(process.argv.slice(2), {
     debug: false,
     noGraph: false,
     configStore: false,
+    reasoning: false,
+    help: false,
   },
-  bool: ['graph', 'debug', 'no-graph', 'silent', 'configStore'],
+  bool: [
+    'graph', 'debug',
+    'no-graph',
+    'silent',
+    'configStore',
+    'reasoning',
+    'help',
+  ],
   alias: {
     noGraph: 'silent',
     configStore: ['file', 'config-store'],
+    reasoning: ['calculations'],
   },
   camel: true,
   unknown(arg, fun) {
     if (fun.i === 0) fun.argv.runTimes = Number(arg)
   },
 })
-let {runTimes, graph, dry, debug, noGraph, configStore} = argv
+let {runTimes, graph, dry, debug, noGraph, configStore, reasoning, help} = argv
+
+if (help) {
+  const chalk = log.chalk()
+  log
+    .underline('bench-chain: --help')
+    .fmtobj({
+      '--runTimes': {
+        type: chalk.blue('Number'),
+        default: 1,
+        description: 'run the benchmarks multiple times',
+      },
+      '--graph': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'only show the graph',
+      },
+      '--noGraph': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'do not show the graph',
+      },
+      '--dry': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'do not run the graph',
+      },
+      '--debug': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'verbose debugging information',
+      },
+      '--configStore': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'use configstore instead of the json file in source',
+      },
+      '--reasoning': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'show math calculation reasoning for slower/faster',
+      },
+    })
+    .echo()
+    .exit()
+
+  process.exit()
+}
 
 /**
  * @prop {string}  store.dir directory
@@ -67,9 +124,11 @@ class BenchChain extends ChainedMap {
         'memory',
         'subscribers',
         'configStore',
+        'reasoning',
       ])
       .extendIncrement(['index'])
       .debug(debug)
+      .reasoning(reasoning)
       .testNames([])
       .memory(getCurrentMemory())
       .subscribers({
@@ -96,6 +155,9 @@ class BenchChain extends ChainedMap {
     if (debugOverride !== false) bench.debug(debugOverride)
     if (dir !== null) bench.dir(dir)
     if (filename !== null) bench.filename(filename)
+
+    // for just use as a factory method
+    if (!dir && !filename) return bench
 
     return bench.setup()
   }
@@ -127,7 +189,7 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   onSetup(cb) {
-    this.suite.on('setup', cb)
+    this.get('suite').on('setup', cb)
     return this
   }
 
@@ -171,7 +233,7 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   onTeardown(cb) {
-    this.suite.on('teardown', cb)
+    this.get('suite').on('teardown', cb)
     return this
   }
 
@@ -181,10 +243,11 @@ class BenchChain extends ChainedMap {
    * @protected
    * @since 0.4.0
    * @see BenchChain.testName
+   * @param {boolean} [latest=false] only use latest data
    * @return {Object} results, with test name when available
    */
-  getResults() {
-    return this.results.getForName(this.get('suiteName'))
+  getResults(latest = false) {
+    return this.results.getForName(this.get('suiteName'), latest)
   }
 
   /**
@@ -194,7 +257,7 @@ class BenchChain extends ChainedMap {
    * @return {Array<string>} test case name
    */
   fastest() {
-    return this.suite.filter('fastest').map('name')
+    return this.get('suite').filter('fastest').map('name')
   }
 
   // --- file ---
@@ -268,8 +331,7 @@ class BenchChain extends ChainedMap {
 
     this.current = result
 
-    const results = this.getResults()
-    results[name].push(result)
+    this.results.add(this.get('suiteName'), name, result)
 
     return this
   }
@@ -328,18 +390,18 @@ class BenchChain extends ChainedMap {
 
   /**
    * @see BenchChain.setup
-   * @param {string} [nameOverride=null] defaults to this.name, or this.paths.abs
+   * @param {string} [override=null] defaults to this., or this.paths.abs
    * @return {Benchmark.Suite}
    */
-  suite(nameOverride = null) {
+  suite(override = null) {
     const suiteName =
-      nameOverride || this.get('suiteName') || this.results.get('abs')
+      override || this.get('suiteName') || this.results.get('abs')
 
     this.name(suiteName)
 
-    this.suite = new Suite(suiteName)
+    this.set('suite', new Suite(suiteName))
 
-    return this.suite
+    return this.get('suite')
   }
 
   /**
@@ -348,7 +410,7 @@ class BenchChain extends ChainedMap {
    * @return {BenchChain} @chainable
    */
   setup() {
-    if (!(this.suite instanceof Suite)) this.suite()
+    if (!this.has('suite')) this.suite()
 
     // setup ui
     this.ui = new Interface(this)
@@ -371,8 +433,8 @@ class BenchChain extends ChainedMap {
     const onComplete = this._onComplete.bind(this)
 
     // subscribe
-    this.suite.on('cycle', event => cycle(event))
-    this.suite.on('complete', event => onComplete(event))
+    this.get('suite').on('cycle', event => cycle(event))
+    this.get('suite').on('complete', event => onComplete(event))
 
     return this
   }
@@ -395,14 +457,16 @@ class BenchChain extends ChainedMap {
    */
   addRecorder(name) {
     const results = this.getResults()
+    const latest = this.getResults(true)
 
     // use results object, or a new object
-    if (results !== undefined && results[name] === undefined) {
-      results[name] = []
-    }
-    else if (Array.isArray(results[name]) === false) {
-      results[name] = []
-    }
+    if (results !== undefined && results[name] === undefined) results[name] = []
+    else if (Array.isArray(results[name]) === false) results[name] = []
+
+    // same for latest
+    if (latest !== undefined && latest[name] === undefined) latest[name] = []
+    else if (Array.isArray(latest[name]) === false) latest[name] = []
+
 
     this.get('testNames').push(name)
 
@@ -473,7 +537,7 @@ class BenchChain extends ChainedMap {
    */
   addAsync(name, fn) {
     this.set('asyncMode', true)
-    this.suite.add(name, {
+    this.get('suite').add(name, {
       defer: true,
       fn: this.hijackAsync(name, fn),
     })
@@ -491,7 +555,7 @@ class BenchChain extends ChainedMap {
   add(name, fn) {
     this.set('asyncMode', false)
 
-    this.suite.add(name, fn)
+    this.get('suite').add(name, fn)
 
     return this.addRecorder(name)
   }
@@ -518,7 +582,7 @@ class BenchChain extends ChainedMap {
     log.cyan('starting! ' + JSON.stringify(suiteName)).echo(this.get('debug'))
 
     this.ui.onRun(suiteName)
-    this.suite.run({async: asyncMode})
+    this.get('suite').run({async: asyncMode})
 
     return this
   }
@@ -542,8 +606,8 @@ class BenchChain extends ChainedMap {
 
       log.yellow('reset suite: ').data(msg).echo()
 
-      this.suite.reset()
-      this.suite.run({async: this.get('asyncMode')})
+      this.get('suite').reset()
+      this.get('suite').run({async: this.get('asyncMode')})
     }
 
     return this
@@ -566,6 +630,7 @@ class BenchChain extends ChainedMap {
     reporter.echoPercent()
     reporter.echoAvgGraph()
     reporter.echoTrend()
+    reporter.echoOps()
 
     return this
   }

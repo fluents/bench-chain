@@ -1,4 +1,3 @@
-const padEnd = require('string.prototype.padend')
 const os = require('os')
 
 function uniq(value, index, arr) {
@@ -46,31 +45,21 @@ function formatNumber(number) {
  */
 function calcTimes(value, other) {
   const diff = other / value
-  const percentage = diff / 100
-  const fixed = percentage * 1000
 
-  const end2 = Math.round(percentage * 10) / 10
-  const end3 = Math.round(value / other / 100 * 1000)
+  // require('fliplog').quick({value, other, diff, fixed, end2, end3, end4, end5, end6, fixed2})
 
-  const diff2 = value / other
-  const percentage2 = diff2 / 100
-  const fixed2 = percentage2 * 1000
-  // require('fliplog').quick({value, other, diff, fixed, end2, end3, fixed2})
   return diff
 }
 
-function calcPercent(value, other) {
-  const diff = other / value
-  const percentage = diff / 100
-  const fixed = percentage * 1000
-
-  const end2 = Math.round(percentage * 10) / 10
-  const end3 = Math.round(value / other / 100 * 1000)
-
-  const diff2 = value / other
-  const percentage2 = diff2 / 100
-  const fixed2 = percentage2 * 1000
-  return fixed2.toFixed(2)
+/**
+ * @tutorial http://www.randomsnippets.com/2009/07/12/dynamic-or-on-the-fly-percentage-calculations-with-javascript/
+ * @param  {number} oldval
+ * @param  {number} newval
+ * @return {number}
+ */
+function calcPercent(oldval, newval) {
+  var percentsavings = ((oldval - newval) / oldval) * 100
+  return Math.round(percentsavings * 100) / 100
 }
 
 /**
@@ -141,7 +130,15 @@ function getDiv(max) {
 // const flowmax = flow(Math.floor, Math.max)
 const flowmin = nums => Math.floor(Math.min(...nums))
 const flowmax = nums => Math.floor(Math.max(...nums))
-
+// const flowmax = nums => {
+//   if (!nums) return 0
+//   return Math.floor(nums.reduce((a, b) => Math.max(a, b)))
+// }
+// const flowmin = nums => {
+//   if (!nums) return 0
+//   return Math.floor(nums.reduce((a, b) => Math.min(a, b)))
+// }
+//
 function getCurrentMemory(init = null) {
   return {
     process: process.memoryUsage(),
@@ -240,11 +237,29 @@ const debounce = require('lodash.debounce')
 const ansiRegex = /[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-PRZcf-nqry=><]/g
 const replaceAnsi = str => str.replace(ansiRegex, '')
 
+// https://github.com/uxitten/polyfill/blob/master/string.polyfill.js
+// https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/repeat
+if (!String.prototype.padEnd) {
+  String.prototype.padEnd = function padEnd(targetLength, padString) {
+    targetLength = targetLength >> 0 // floor if number or convert non-number to 0;
+    padString = String(padString || ' ')
+    if (this.length > targetLength) {
+      return String(this)
+    }
+    else {
+      targetLength = targetLength - this.length
+      if (targetLength > padString.length) {
+        padString += padString.repeat(targetLength / padString.length) // append to original to ensure we are longer than needed
+      }
+      return String(this) + padString.slice(0, targetLength)
+    }
+  }
+}
+
 module.exports = {
   replaceAnsi,
   uniq,
   flow,
-  padEnd,
   calcTimes,
   calcPercent,
   flowVals,

@@ -15,16 +15,17 @@ module.exports = class Report extends ChainedMap {
   constructor(parent) {
     super(parent)
 
-    const {debug, asyncMode} = parent.entries()
+    const {debug, asyncMode, reasoning} = parent.entries()
 
     this.fastest = parent.fastest.bind(parent)
-    this.getResults = () => this.parent.getResults()
+    this.getResults = (latest = false) => this.parent.getResults(latest)
     this.getNames = () => this.parent.get('testNames')
     this.getResultsWithNames = () => {
       return {names: this.getNames(), results: this.getResults()}
     }
 
     // @TODO improve
+    this.reasoning = reasoning
     this.shouldEcho = true
     this.shouldFilter = false
     this.asyncMode = asyncMode
@@ -57,7 +58,7 @@ module.exports = class Report extends ChainedMap {
     const avgs = {}
     const {results, names} = this.getResultsWithNames()
 
-    log.blue('this.results').data(results).echo(this.debug)
+    log.blue('this.results').data({results, names}).echo(this.debug)
 
     // results(keys[0]).timesFor
     if (this.asyncMode) {
@@ -204,7 +205,24 @@ module.exports = class Report extends ChainedMap {
    * @return {Record} @chainable
    */
   echoAvgs() {
-    log.json(this.avgs()).bold('averages:\n').echo(this.shouldEcho)
+    // in async mode, uses microtime diffs as ops are not as reliable
+    let msg = 'lower is better, time taken in microseconds'
+
+    // when in sync mode, it is ops/second instead
+    if (!this.asyncMode) {
+      msg = 'higher is better, operations per second'
+    }
+
+    log
+      .color('dim.italic')
+      .text(msg)
+      .echo()
+
+    log
+      .fmtobj(this.avgs())
+      .bold('averages:')
+      .echo(this.shouldEcho)
+
     return this
   }
 
@@ -222,14 +240,38 @@ module.exports = class Report extends ChainedMap {
   }
 
   /**
+   * @since 0.4.1
    * @desc very long message echoing
    *       for all cycles of all test echoing,
    *       should filter
    * @return {Record} @chainable
    */
   echoOps() {
-    const msgs = mapObjArr(this.getResults(), data => data.msg)
-    log.json(msgs).bold('ops').echo()
+    this.getResults()
+    const {results, names} = this.getResultsWithNames()
+    const msgs = []
+
+    msgs.push('-----')
+    names.forEach(name => {
+      const value = results[name].slice(0).reverse()
+      let limit = 10
+      for (let i = 0; i < limit && i < value.length; i++) {
+        if (!value[i].msg) {
+          limit++
+          continue
+        }
+        msgs.push(value[i].msg)
+      }
+
+      msgs.push('-----')
+    })
+
+    log.bold('\n\noperations per second\n').echo()
+    msgs.forEach(msg => console.log(msg))
+
+    // works too, but harder to filter
+    // const msgs = mapObjArr(this.getResults(), data => data.msg).reverse()
+
     return this
   }
   // --- -------------- ---

@@ -1,27 +1,33 @@
 {
-  "version": "0.4.1",
+  "version": "0.5.1",
   "name": "bench-chain",
   "description": "benchmark recording - averages & graphs.",
   "main": "src/index",
   "scripts": {
+    "examples": "node example/asyncs && node example/basic && node example/configstore && node example/single",
     "test": "ava --verbose",
     "docs": "jsdoc"
   },
+  "todoDependencies": {
+    "fluent-skeleton": "*"
+  },
+  "optionalDependencies": {
+    "microtime": "*"
+  },
   "dependencies": {
-    "obj-chain-core": "0.0.5",
-    "obj-chain-plugin-config": "0.0.5",
+    "obj-chain-core": "0.0.7",
+    "obj-chain-plugin-config": "0.0.7",
     "benchmark": "2.1.4",
     "cli-table2": "^0.2.0",
     "flipchain": "*",
     "flipfile": "*",
-    "fliplog": "*",
-    "fliptime": "*",
+    "fliplog": "^0.2.7",
+    "fliptime": "^3.0.2",
     "funwithflags": "*",
     "lodash.debounce": "^4.0.8",
     "lodash.flatten": "^4.4.0",
     "lodash.forown": "^4.4.0",
-    "script-chain": "*",
-    "string.prototype.padend": "^3.0.0"
+    "script-chain": "*"
   },
   "devDependencies": {
     "ava": "*",
@@ -30,7 +36,8 @@
     "jsdoc": "3.4.3",
     "jsdoc-api": "3.0.0",
     "jsdoc-babel": "^0.3.0",
-    "tui-jsdoc-template": "^1.1.0"
+    "tui-jsdoc-template": "^1.1.0",
+    "fluent-skeleton": "*"
   },
   "keywords": [
     "benchmark",

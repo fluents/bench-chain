@@ -20,58 +20,100 @@ let {
  */
 module.exports = class PercentReporter {
   constructor(parent) {
+    this.reasoning = parent.reasoning
     this.asyncMode = parent.asyncMode
     this.suiteName = parent.parent.get('suiteName')
     this.avgs = parent.avgs.bind(parent)
   }
 
   /**
-   * @see https://github.com/aretecode/bench-chain/issues/2
    * @protected
-   * @TODO clean
+   * @see [x] https://github.com/aretecode/bench-chain/issues/2
+   *
    * @desc compares two numbers,
    *       calculates times & percent,
    *       adjusts wording based on results
    *       calculate the positive and negatives * / x / times more/less
+   *
+   * @NOTE when in not-async mode,
+   *       it was using cycle ops instead of microtime diffs
+   *       but to simplify now both use the same
+   *       also because the hz in ops can be below 0
+   *       throwing off the calculations
+   *
    * @since 0.4.1
    * @param  {number} value
    * @param  {number} other
    * @return {Object} {end, fixed, percent, word}
    */
   calculatePercent(value, other) {
-    let fixed = calcTimes(value, other)
-    let end = fixed
-    let end2 = Math.floor(calcTimes(other, value))
-    let percent = calcPercent(other, value)
-    let word = 'faster'
+    const higherIsBetter = !this.asyncMode
 
-    const lt = end2 === -1 || end2 === 0
-    const usep = (end2 === 1 || lt) && false
-    if (usep) {
-      end = percent + '%'
-      if (lt) word = 'slower'
-      if (lt && !this.asyncMode) word = 'faster (ops/s)'
-      else if (!this.asyncMode) word = 'slower (ops/s)'
+    const data = {
+      higherIsBetter,
+      firstIsMore: value > other,
+      negative: false,
+      xy: calcTimes(value, other),
+      yx: calcTimes(other, value),
+      xyf: Math.floor(calcTimes(value, other)),
+      yxf: Math.floor(calcTimes(other, value)),
+      yxpercent: Math.floor(calcPercent(other, value)),
+      xypercent: Math.floor(calcPercent(value, other)),
     }
-    else if (end < 1) {
-      word = 'slower'
-      end = '-' + end2 + 'X'
-      if (this.asyncMode) {
-        word = 'faster (ops/s)'
-        end = end2 + 'X'
+
+    // default usually
+    const shouldUseTimes = () => {
+      return data.xyf !== 0 && data.yxf === 0
+    }
+    // if higher is better, if the calculates are revered, fix
+    const shouldUseTimesFlipped = () => {
+      return data.xyf === 0 && data.yxf !== 0 // && higherIsBetter
+    }
+    // usually used if below 0 && higher is not better
+    const shouldUsePercent = () => {
+      return data.xyf === 1 || data.yxf === 1
+    }
+    // check the calculations to return formatted string
+    const format = () => {
+      if (shouldUseTimes()) {
+        return data.xyf + 'X'
       }
+      if (shouldUseTimesFlipped()) {
+        return data.yxf + 'X'
+      }
+      if (shouldUsePercent()) {
+        return data.yxpercent + '%'
+      }
+
+      return data.yxf + 'X'
     }
-    else {
-      if (!this.asyncMode) word = 'slower (ops/s)'
-      end = Math.floor(fixed) + 'X'
+    const slowerOrFaster = () => {
+      // all nots
+      if (!higherIsBetter && !data.firstIsMore && !data.negative) {
+        return 'faster'
+      }
+      if (higherIsBetter && data.firstIsMore && !data.negative) {
+        return 'faster'
+      }
+
+      return 'slower'
     }
 
-    if (!this.asyncMode) {
-      if (end.includes('-')) end = end.replace('-', '')
-      else end = '-' + end
+    data.calculated = {
+      msg: format() + ' ' + slowerOrFaster(),
+      slowerOrFaster: slowerOrFaster(),
+      shouldUseTimes: shouldUseTimes(),
+      shouldUseTimesFlipped: shouldUseTimesFlipped(),
+      shouldUsePercent: shouldUsePercent(),
+      formatted: format(),
     }
 
-    return {end, fixed, percent, word}
+    log.bold('======\n').fmtobj(data).echo(this.reasoning)
+
+    const word = slowerOrFaster()
+    const end = format()
+
+    return {end, word}
   }
 
   /**
@@ -125,7 +167,7 @@ module.exports = class PercentReporter {
         let vc = log.colored(value + '', 'green.underline')
         let oc = log.colored(other + '', 'green.underline')
         let ec = log.colored(end, 'bold')
-        let wc = log.colored(word, 'italic') + ' than'
+        let wc = log.colored(word, 'italic') + '  than'
         let ns = [log.colored(name, 'cyan'), log.colored(compare, 'blue')]
 
         // wrap strings
@@ -157,10 +199,19 @@ module.exports = class PercentReporter {
    */
   echoPaddedAverages(pcts, names, parts) {
     console.log('\n')
-    log.bold(this.suiteName).echo()
+    let suiteName = this.suiteName
+
+    if (suiteName.includes('/')) {
+      suiteName = suiteName.split('/').pop()
+    }
+    if (suiteName.includes('.json')) {
+      suiteName = suiteName.split('.json').shift()
+    }
+
+    log.bold(suiteName).echo()
 
     if (names[0]) {
-      console.log(log.colored(names[0].split(' ').pop(), 'underline'))
+      console.log('🏆  ' + log.colored(names[0].split(' ').pop(), 'underline'))
     }
 
     // padd end for pretty string
@@ -169,7 +220,21 @@ module.exports = class PercentReporter {
       let str = ''
       forown(pct, (v, k) => {
         if (k === 'msg') return
-        str += padEnd(v, longests[k] + 2)
+
+        // pad first
+        v = v.padEnd(longests[k] + 2)
+
+        // because these emoji have different lengths in chars
+        // but not terminal size so we replace here
+        if (v.includes('faster')) {
+          v = v.replace(/(faster)/g, '🏎️') // 🏎️ ⚡
+        }
+        else if (v.includes('slower')) {
+          v = v.replace(/(slower)/g, '🐌')
+        }
+        v = v.replace(/(than)/g, log.colored(' than', 'dim'))
+
+        str += v
       })
       console.log(str)
     })
@@ -192,7 +257,9 @@ module.exports = class PercentReporter {
     const rows = pcts.map((p, i) => {
       const strippedName = replaceAnsi(p.name)
       if (!avgLong[strippedName]) {
-        log.quick(avgLong, names, strippedName, i, p)
+        log.red('could not average it out' + p.name).echo()
+        // log.quick({avgLong, names, strippedName, i, p})
+        return ''
       }
 
       return avgLong[strippedName]
