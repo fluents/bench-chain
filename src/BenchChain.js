@@ -23,18 +23,75 @@ const argv = Fun(process.argv.slice(2), {
     debug: false,
     noGraph: false,
     configStore: false,
+    reasoning: false,
+    help: false,
   },
-  bool: ['graph', 'debug', 'no-graph', 'silent', 'configStore'],
+  bool: [
+    'graph', 'debug',
+    'no-graph',
+    'silent',
+    'configStore',
+    'reasoning',
+    'help',
+  ],
   alias: {
     noGraph: 'silent',
     configStore: ['file', 'config-store'],
+    reasoning: ['calculations'],
   },
   camel: true,
   unknown(arg, fun) {
     if (fun.i === 0) fun.argv.runTimes = Number(arg)
   },
 })
-let {runTimes, graph, dry, debug, noGraph, configStore} = argv
+let {runTimes, graph, dry, debug, noGraph, configStore, reasoning, help} = argv
+
+if (help) {
+  const chalk = log.chalk()
+  log
+    .underline('bench-chain: --help')
+    .fmtobj({
+      '--runTimes': {
+        type: chalk.blue('Number'),
+        default: 1,
+        description: 'run the benchmarks multiple times',
+      },
+      '--graph': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'only show the graph',
+      },
+      '--noGraph': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'do not show the graph',
+      },
+      '--dry': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'do not run the graph',
+      },
+      '--debug': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'verbose debugging information',
+      },
+      '--configStore': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'use configstore instead of the json file in source',
+      },
+      '--reasoning': {
+        type: chalk.blue('Boolean'),
+        default: false,
+        description: 'show math calculation reasoning for slower/faster',
+      },
+    })
+    .echo()
+    .exit()
+
+  process.exit()
+}
 
 /**
  * @prop {string}  store.dir directory
@@ -67,9 +124,11 @@ class BenchChain extends ChainedMap {
         'memory',
         'subscribers',
         'configStore',
+        'reasoning',
       ])
       .extendIncrement(['index'])
       .debug(debug)
+      .reasoning(reasoning)
       .testNames([])
       .memory(getCurrentMemory())
       .subscribers({
