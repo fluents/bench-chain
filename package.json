@@ -1,5 +1,5 @@
 {
-  "version": "0.5.0",
+  "version": "0.5.1",
   "name": "bench-chain",
   "description": "benchmark recording - averages & graphs.",
   "main": "src/index",
@@ -8,8 +8,11 @@
     "test": "ava --verbose",
     "docs": "jsdoc"
   },
-  "optionalDependencies": {
+  "todoDependencies": {
     "fluent-skeleton": "*"
+  },
+  "optionalDependencies": {
+    "microtime": "*"
   },
   "dependencies": {
     "obj-chain-core": "0.0.7",
@@ -18,8 +21,8 @@
     "cli-table2": "^0.2.0",
     "flipchain": "*",
     "flipfile": "*",
-    "fliplog": "*",
-    "fliptime": "*",
+    "fliplog": "^0.2.7",
+    "fliptime": "^3.0.2",
     "funwithflags": "*",
     "lodash.debounce": "^4.0.8",
     "lodash.flatten": "^4.4.0",

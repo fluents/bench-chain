@@ -1,3 +1,15 @@
+# 0.5.1
+- ☮️ compatibility: update fliptime with microtime polyfil that prefers microtime dep when it is available and accepts flags when available
+- ℹ️️ add cli --help flag
+- 🚩 add --reasoning as a flag to show math calculations for showing
+- 🏛️% refactor percentage reporting part 3
+  - +- which is faster and slower,
+  - %x whether to use percent or times,
+  - <> whether to flip the values,
+  - .. the digits on the numbers
+- 📘 add examples to display all 4 of those possibilities (since it compares in groups of 2, async and sync)
+- 🔬📝 test todos
+
 # 0.5.0
 - ⛓ put suite in store - breaking
 - 📦⬇ optional deps
