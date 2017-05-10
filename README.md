@@ -19,8 +19,8 @@
 [gitter-badge]: https://img.shields.io/gitter/room/bench-chain/pink.svg
 [gitter-url]: https://gitter.im/bench-chain/Lobby
 
-[travis-image]: https://travis-ci.org/${org}/bench-chain.svg?branch=master
-[travis-url]: https://travis-ci.org/bench-chain/bench-chain
+[travis-image]: https://travis-ci.org/fluents/bench-chain.svg?branch=master
+[travis-url]: https://travis-ci.org/fluents/bench-chain
 
 [david-deps-img]: https://david-dm.org/bench-chain/bench-chain.svg
 [david-deps-url]: https://david-dm.org/bench-chain/bench-chain
