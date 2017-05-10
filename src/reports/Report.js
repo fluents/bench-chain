@@ -15,7 +15,7 @@ module.exports = class Report extends ChainedMap {
   constructor(parent) {
     super(parent)
 
-    const {debug, asyncMode} = parent.entries()
+    const {debug, asyncMode, reasoning} = parent.entries()
 
     this.fastest = parent.fastest.bind(parent)
     this.getResults = (latest = false) => this.parent.getResults(latest)
@@ -25,6 +25,7 @@ module.exports = class Report extends ChainedMap {
     }
 
     // @TODO improve
+    this.reasoning = reasoning
     this.shouldEcho = true
     this.shouldFilter = false
     this.asyncMode = asyncMode
@@ -204,9 +205,17 @@ module.exports = class Report extends ChainedMap {
    * @return {Record} @chainable
    */
   echoAvgs() {
+    // in async mode, uses microtime diffs as ops are not as reliable
+    let msg = 'lower is better, time taken in microseconds'
+
+    // when in sync mode, it is ops/second instead
+    if (!this.asyncMode) {
+      msg = 'higher is better, operations per second'
+    }
+
     log
       .color('dim.italic')
-      .text('lower is better, time taken in microseconds')
+      .text(msg)
       .echo()
 
     log
